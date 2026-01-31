@@ -1,8 +1,18 @@
 
 
-# Tecplot PLT File Generation Library (Python) Under development...
+# Tecplot PLT File Generation Library (Python)
 
-This is a Python translation of the MATLAB `liton_ordered_tec` library(https://github.com/luanmingyi/liton_ordered_tec_cpp.git) for generating Tecplot `.plt` files.
+This is a Python translation of the MATLAB `liton_ordered_tec` library for generating Tecplot `.plt` files.
+
+## Features
+
+- Full port of MATLAB TEC_FILE and TEC_ZONE classes
+- Support for multiple data zones in a single file
+- Support for 1D, 2D, and 3D data
+- Data subsampling with Skip, Begin, and EEnd parameters
+- Support for multiple data types: float32, float64, int32, int16, int8
+- Configurable echo modes for debugging
+- Column-major (Fortran) data order for Tecplot compatibility
 
 ## Files
 
@@ -123,8 +133,20 @@ This Python translation maintains the same API and functionality as the original
 
 - NumPy is required for array operations
 - Binary output uses little-endian byte order (compatible with Tecplot)
-- Variable data order must match the `Variables` list
+- Variable data order must match `Variables` list
 - Zone names should be unique for proper identification
+- **Important**: Data is written in column-major (Fortran) order to match MATLAB output
+
+## Recent Improvements
+
+### Version 1.0 - 2026-01-30
+- ✅ Fixed Echo_Mode initialization bug in constructors
+- ✅ Added complete type hints throughout the codebase
+- ✅ Optimized s2i function using bytearray (better performance)
+- ✅ Extracted repeated string formatting to helper functions
+- ✅ Added comprehensive documentation with examples
+- ✅ Fixed critical data order issue (column-major vs row-major)
+- ✅ Full test suite with 6 test cases
 
 ## Requirements
 
