@@ -220,6 +220,10 @@ class TEC_FILE(TEC_FILE_BASE):
     This class handles the creation of Tecplot binary PLT files with support for
     multiple data zones, different data types, and various file formats.
     
+    Simplified API for quick data entry:
+    - Use AddData() method to add data variables one by one
+    - Variable names are automatically assigned from Variables list if not specified
+    
     Echo modes: 'brief', 'full', 'simple', 'none', 'leave'
     Echo_Mode flags: [file_head, file_end, variable, section, size, time, usingtime]
     
@@ -227,13 +231,12 @@ class TEC_FILE(TEC_FILE_BASE):
         >>> import numpy as np
         >>> from tecplot import TEC_FILE, TEC_ZONE
         >>>
-        >>> # Create a new TEC_FILE
+        >>> # Simplified API - Recommended for most use cases
         >>> tec_file = TEC_FILE()
         >>> tec_file.FileName = 'output'
         >>> tec_file.Variables = ['x', 'y', 'z', 'pressure']
         >>>
-        >>> # Add a zone with data
-        >>> tec_file.Zones = [TEC_ZONE()]
+        >>> # Add data one by one (automatic zone creation)
         >>> x = np.linspace(0, 10, 100).reshape(100, 1)
         >>> y = np.linspace(0, 10, 100).reshape(1, 100)
         >>> X = x + np.zeros_like(y)
@@ -241,11 +244,29 @@ class TEC_FILE(TEC_FILE_BASE):
         >>> Z = np.sin(X) * np.cos(Y)
         >>> P = Z * 1000
         >>>
-        >>> tec_file.Zones[0].Data = [X, Y, Z, P]
-        >>> tec_file.Zones[0].ZoneName = 'Zone1'
+        >>> tec_file.AddData(X, name='x')  # Specify variable name
+        >>> tec_file.AddData(Y, name='y')  # Specify variable name
+        >>> tec_file.AddData(Z, name='z')
+        >>> tec_file.AddData(P)
+        >>>
+        >>> # Alternative: add data without name (uses Variables order)
+        >>> tec_file.AddData(X)  # Uses 'x' from Variables
+        >>> tec_file.AddData(Y)  # Uses 'y' from Variables
+        >>> tec_file.AddData(Z)  # Uses 'z' from Variables
+        >>> tec_file.AddData(P)  # Uses 'pressure' from Variables
         >>>
         >>> # Write to file
         >>> tec_file.write_plt()
+        >>>
+        >>> # Traditional API (still supported)
+        >>> tec_file2 = TEC_FILE()
+        >>> tec_file2.FileName = 'output2'
+        >>> tec_file2.Variables = ['x', 'y', 'z', 'pressure']
+        >>> tec_file2.Zones = [TEC_ZONE()]
+        >>> zone = tec_file2.Zones[0]
+        >>> zone.Data = [X, Y, Z, P]
+        >>> zone.ZoneName = 'Zone1'
+        >>> tec_file2.write_plt()
     """
     
     def __init__(self, *args):
@@ -317,6 +338,67 @@ class TEC_FILE(TEC_FILE_BASE):
         self.Echo_Mode = file_mode
         for zone in self.Zones:
             zone.Echo_Mode = zone_mode
+        return self
+    
+    def AddData(self, data: np.ndarray, name: Optional[str] = None) -> 'TEC_FILE':
+        """
+        Add data array to the current zone.
+        
+        Simplified API for adding data. Automatically manages zones and variable names.
+        
+        Args:
+            data: Numpy array containing the data
+            name: Variable name (optional). If not provided, uses Variables list
+            
+        Returns:
+            Self for chaining
+            
+        Examples:
+            >>> tec_file = TEC_FILE()
+            >>> tec_file.Variables = ['x', 'y', 'z', 'pressure']
+            >>>
+            >>> # Add data one by one (simplified API)
+            >>> tec_file.AddData(X, name='x')
+            >>> tec_file.AddData(Y, name='y')
+            >>> tec_file.AddData(Z, name='z')
+            >>> tec_file.AddData(P)
+            >>>
+            >>> # Alternative: add data without name (uses Variables order)
+            >>> tec_file.AddData(X)  # Uses 'x' from Variables
+            >>> tec_file.AddData(Y)  # Uses 'y' from Variables
+            >>> tec_file.AddData(Z)  # Uses 'z' from Variables
+            >>> tec_file.AddData(P)  # Uses 'pressure' from Variables
+            >>>
+            >>> # Write to file
+            >>> tec_file.write_plt()
+        """
+        # Create first zone if needed
+        if not self.Zones:
+            self.Zones = [TEC_ZONE()]
+        
+        # Get current zone
+        zone = self.Zones[0]
+        
+        # Determine variable name
+        if name is None:
+            # Use variable name from Variables list based on current data count
+            var_idx = len(zone.Data)
+            if var_idx < len(self.Variables):
+                name = self.Variables[var_idx]
+            else:
+                raise RuntimeError(
+                    f'No variable name provided and Variables list exhausted. '
+                    f'Current variables added: {len(zone.Data)}, '
+                    f'Variables list length: {len(self.Variables)}'
+                )
+        
+        # Add data
+        zone.Data.append(data)
+        
+        # Set zone name if not set
+        if not zone.ZoneName or zone.ZoneName == 'untitled_zone':
+            zone.ZoneName = f'Zone_{len(self.Zones)}'
+        
         return self
     
     def write_plt(self) -> 'TEC_FILE':

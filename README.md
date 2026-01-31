@@ -73,6 +73,38 @@ Class for managing data zones.
 
 ## Basic Usage
 
+### Simplified API (Recommended)
+
+```python
+import numpy as np
+from tecplot import TEC_FILE
+
+# Create TEC_FILE object
+tec_file = TEC_FILE()
+tec_file.FileName = 'output'
+tec_file.Variables = ['x', 'y', 'z', 'pressure']
+
+# Create 2D grid data
+nx, ny = 100, 100
+x = np.linspace(0, 10, nx).reshape(nx, 1)
+y = np.linspace(0, 10, ny).reshape(1, ny)
+X = x + np.zeros_like(y)
+Y = y + np.zeros_like(x)
+Z = np.sin(X) * np.cos(Y)
+P = Z * 1000
+
+# Add data one by one (automatic zone creation)
+tec_file.AddData(X, name='x')
+tec_file.AddData(Y, name='y')
+tec_file.AddData(Z, name='z')
+tec_file.AddData(P)  # Uses 'pressure' from Variables
+
+# Write PLT file
+tec_file.write_plt()
+```
+
+### Traditional API
+
 ```python
 import numpy as np
 from tecplot import TEC_FILE, TEC_ZONE
@@ -101,6 +133,15 @@ tec_file.Zones[0].ZoneName = 'MyZone'
 # Write PLT file
 tec_file.write_plt()
 ```
+
+### Key Differences
+
+| Feature | Simplified API | Traditional API |
+|----------|----------------|------------------|
+| Zone creation | Automatic (first AddData call) | Manual (TEC_ZONE()) |
+| Variable names | Auto from Variables list | Must match order manually |
+| Code lines | ~10 lines | ~15 lines |
+| Complexity | Low | High |
 
 ## Running Tests
 

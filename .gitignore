@@ -16,4 +16,8 @@
 /s2i.m
 /skip_test.plt
 /t_all.plt
-/test_3d.plt
+/test_3d.plt*.plt
+*.mat
+*.info
+test_simple_api.py
+simple_api_demo.plt
