@@ -2,7 +2,7 @@
 
 # Tecplot PLT File Generation Library (Python) Under development...
 
-This is a Python translation of the MATLAB `liton_ordered_tec` library for generating Tecplot `.plt` files.
+This is a Python translation of the MATLAB `liton_ordered_tec` library(https://github.com/luanmingyi/liton_ordered_tec_cpp.git) for generating Tecplot `.plt` files.
 
 ## Files
 

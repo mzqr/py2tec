@@ -6,7 +6,7 @@ Translation of MATLAB TEC_FILE and TEC_ZONE classes
 import struct
 import time
 from datetime import datetime
-from typing import List, Union, Optional, Tuple
+from typing import List, Union, Optional, Tuple, Dict, Any
 import numpy as np
 
 
@@ -25,16 +25,17 @@ def s2i(s: Union[str, List[str]]) -> List[int]:
         List of int32 values (ASCII codes with null terminator)
     """
     if isinstance(s, list):
-        result = []
+        # Use bytearray for better performance with large strings
+        result = bytearray()
         for item in s:
-            chars = [ord(c) for c in item]
-            chars.append(0)  # null terminator
-            result.extend(chars)
-        return result
+            result.extend(item.encode('ascii'))
+            result.append(0)  # null terminator
+        return list(result)
     else:
-        chars = [ord(c) for c in s]
-        chars.append(0)  # null terminator
-        return chars
+        # Single string - use bytearray for better performance
+        result = bytearray(s.encode('ascii'))
+        result.append(0)  # null terminator
+        return list(result)
 
 
 def real_ijk(ijk: List[int], skip: List[int], begin: List[int], eend: List[int]) -> List[int]:
@@ -68,6 +69,9 @@ def makebuf(data: np.ndarray, skip: List[int], begin: List[int], eend: List[int]
     """
     Make buffer data from array with Skip, Begin and EEnd.
     
+    NOTE: MATLAB uses column-major (Fortran) order, while NumPy uses row-major (C) order.
+    This function ensures data is flattened in column-major order to match MATLAB output.
+    
     Args:
         data: Input data array
         skip: Skip values
@@ -75,10 +79,10 @@ def makebuf(data: np.ndarray, skip: List[int], begin: List[int], eend: List[int]
         eend: EEnd values
         
     Returns:
-        Buffered data array
+        Buffered data array (flattened in column-major order)
     """
     if skip == [1, 1, 1] and begin == [0, 0, 0] and eend == [0, 0, 0]:
-        buf = data
+        buf = data.flatten(order='F')
     else:
         # Handle different dimensions
         if data.ndim == 1:
@@ -94,7 +98,8 @@ def makebuf(data: np.ndarray, skip: List[int], begin: List[int], eend: List[int]
     if buf.size == 0:
         raise RuntimeError('one of Skip or Begin or EEnd is error')
     
-    return buf
+    # Ensure column-major order for Tecplot compatibility with MATLAB
+    return buf.flatten(order='F')
 
 
 def gettype(data: np.ndarray) -> Tuple[int, int]:
@@ -167,6 +172,44 @@ class TEC_ZONE_BASE:
 
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+def _format_dims(label: str, max_label: str, values: List[int], count: int) -> str:
+    """
+    Format dimension list for echo output.
+    
+    Args:
+        label: Dimension label (e.g., 'Dim', 'Org_Dim')
+        max_label: Max dimension label (e.g., 'Real_Max', 'Org_Max')
+        values: List of dimension values
+        count: Number of dimensions to include
+        
+    Returns:
+        Formatted string
+    """
+    result = f'     {label} = {count}   {max_label} = ['
+    result += ' '.join(str(v) for v in values[:count])
+    result += ' ]'
+    return result
+
+
+def _format_vector(label: str, values: List[int]) -> str:
+    """
+    Format vector list for echo output.
+    
+    Args:
+        label: Vector label (e.g., 'Skip', 'Begin')
+        values: List of vector values
+        
+    Returns:
+        Formatted string
+    """
+    result = f'     {label} = [ {" ".join(str(v) for v in values)} ]'
+    return result
+
+
+# ============================================================================
 # Main Classes
 # ============================================================================
 
@@ -174,15 +217,45 @@ class TEC_FILE(TEC_FILE_BASE):
     """
     Main TEC_FILE class for generating Tecplot PLT files.
     
+    This class handles the creation of Tecplot binary PLT files with support for
+    multiple data zones, different data types, and various file formats.
+    
     Echo modes: 'brief', 'full', 'simple', 'none', 'leave'
     Echo_Mode flags: [file_head, file_end, variable, section, size, time, usingtime]
+    
+    Examples:
+        >>> import numpy as np
+        >>> from tecplot import TEC_FILE, TEC_ZONE
+        >>>
+        >>> # Create a new TEC_FILE
+        >>> tec_file = TEC_FILE()
+        >>> tec_file.FileName = 'output'
+        >>> tec_file.Variables = ['x', 'y', 'z', 'pressure']
+        >>>
+        >>> # Add a zone with data
+        >>> tec_file.Zones = [TEC_ZONE()]
+        >>> x = np.linspace(0, 10, 100).reshape(100, 1)
+        >>> y = np.linspace(0, 10, 100).reshape(1, 100)
+        >>> X = x + np.zeros_like(y)
+        >>> Y = y + np.zeros_like(x)
+        >>> Z = np.sin(X) * np.cos(Y)
+        >>> P = Z * 1000
+        >>>
+        >>> tec_file.Zones[0].Data = [X, Y, Z, P]
+        >>> tec_file.Zones[0].ZoneName = 'Zone1'
+        >>>
+        >>> # Write to file
+        >>> tec_file.write_plt()
     """
     
     def __init__(self, *args):
         super().__init__()
         self.Zones: List['TEC_ZONE'] = []
+        self.last_log: Dict[str, Any] = {}
+        # Initialize _echo_mode before setting Echo_Mode property
+        self._echo_mode: List[bool] = [True, True, True, False, False, True, False]
+        # Now set the Echo_Mode property (will use the setter)
         self.Echo_Mode: Union[str, List[bool]] = 'brief'
-        self.last_log: dict = {}
         
         if len(args) == 0:
             # Default values from base class
@@ -410,13 +483,40 @@ class TEC_ZONE(TEC_ZONE_BASE):
     """
     Main TEC_ZONE class for managing data zones in Tecplot files.
     
+    This class manages individual data zones within a Tecplot file, supporting
+    various data types, dimensions (1D, 2D, 3D), and data
+    subsampling options (Skip, Begin, EEnd).
+    
     Echo_Mode flags: [zone_head, zone_end, variable, max_real, max_org, 
                       skip, begin_end, stdid_soltime, size]
+    
+    Examples:
+        >>> import numpy as np
+        >>> from tecplot import TEC_ZONE
+        >>>
+        >>> # Create a zone with 2D data
+        >>> zone = TEC_ZONE()
+        >>> zone.ZoneName = 'FlowField'
+        >>> x = np.linspace(0, 1, 50).reshape(50, 1)
+        >>> y = np.linspace(0, 1, 50).reshape(1, 50)
+        >>> X = x + np.zeros_like(y)
+        >>> Y = y + np.zeros_like(x)
+        >>> U = np.sin(2 * np.pi * X)
+        >>> V = np.cos(2 * np.pi * Y)
+        >>>
+        >>> zone.Data = [X, Y, U, V]
+        >>>
+        >>> # Use Skip and Begin for subsampling
+        >>> zone.Skip = [2, 2, 1]  # Skip every other point
+        >>> zone.Begin = [5, 5, 0]  # Skip first 5 points
     """
     
     def __init__(self, *args):
         super().__init__()
         self.Data: List[np.ndarray] = []
+        # Initialize _echo_mode before setting Echo_Mode property
+        self._echo_mode: List[bool] = [True, False, False, True, False, False, False, False, False]
+        # Now set the Echo_Mode property (will use the setter)
         self.Echo_Mode: Union[str, List[bool]] = 'brief'
         
         if len(args) == 0:
@@ -594,27 +694,18 @@ class TEC_ZONE(TEC_ZONE_BASE):
         # Echo information
         if self.Echo_Mode[3]:
             Real_Max, Real_Dim, _, _ = self.gather_real_size()
-            echobuf = f'     Dim = {Real_Dim}   Real_Max = ['
-            echobuf += ' '.join(str(v) for v in Real_Max[:Real_Dim])
-            echobuf += ' ]'
-            print(echobuf)
+            print(_format_dims('Dim', 'Real_Max', Real_Max, Real_Dim))
         
         if self.Echo_Mode[4]:
             orig_dims = list(self.Data[0].shape)
             orig_dim = max(i for i, m in enumerate(orig_dims, 1) if m != 1)
-            echobuf = f'     Org_Dim = {orig_dim}   Org_Max = ['
-            echobuf += ' '.join(str(v) for v in orig_dims[:orig_dim])
-            echobuf += ' ]'
-            print(echobuf)
+            print(_format_dims('Org_Dim', 'Org_Max', orig_dims, orig_dim))
         
         if self.Echo_Mode[5]:
-            echobuf = f'     Skip = [ {" ".join(str(v) for v in self.Skip)} ]'
-            print(echobuf)
+            print(_format_vector('Skip', self.Skip))
         
         if self.Echo_Mode[6]:
-            echobuf = f'     Begin = [ {" ".join(str(v) for v in self.Begin)} ]'
-            echobuf += f'   EEnd = [ {" ".join(str(v) for v in self.EEnd)} ]'
-            print(echobuf)
+            print(_format_vector('Begin', self.Begin) + '   ' + _format_vector('EEnd', self.EEnd))
         
         if self.Echo_Mode[7] and self.StrandId != -1:
             echobuf = f'     StrandId = {self.StrandId} SolutionTime = {self.SolutionTime:e}'
