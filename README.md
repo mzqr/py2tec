@@ -37,8 +37,10 @@ Main class for creating Tecplot PLT files.
 **Echo Modes:** 'brief', 'full', 'simple', 'none', 'leave'
 
 **Methods:**
-- `write_plt()`: Write the PLT file to disk
+- `write_plt()`: Write PLT file to disk
 - `set_echo_mode(file_mode, zone_mode)`: Set echo modes for file and zones
+- `AddData(data, name=None)`: Add single data array
+- `add_datas(data_list, name_list=None)`: Batch add multiple data arrays (DataFrame-like)
 
 ### TEC_ZONE
 Class for managing data zones.
@@ -134,14 +136,54 @@ tec_file.Zones[0].ZoneName = 'MyZone'
 tec_file.write_plt()
 ```
 
+### Batch Add API (DataFrame-like)
+
+```python
+import numpy as np
+from tecplot import TEC_FILE
+
+# Create TEC_FILE object
+tec_file = TEC_FILE()
+tec_file.FileName = 'output'
+tec_file.Variables = ['x', 'y', 'z', 'pressure']
+
+# Create multiple data arrays
+x = np.linspace(0, 10, 100).reshape(100, 1)
+y = np.linspace(0, 10, 100).reshape(1, 100)
+X = x + np.zeros_like(y)
+Y = y + np.zeros_like(x)
+Z = np.sin(X) * np.cos(Y)
+P = Z * 1000
+U = np.random.rand(100, 100)
+V = np.random.rand(100, 100)
+
+# Batch add with automatic variable names
+tec_file.add_datas([X, Y, Z, P, U, V])
+# Same as:
+# tec_file.AddData(X)  # Uses 'x' from Variables
+# tec_file.AddData(Y)  # Uses 'y' from Variables
+# tec_file.AddData(Z)  # Uses 'z' from Variables
+# tec_file.AddData(P)  # Uses 'pressure' from Variables
+# tec_file.AddData(U)  # Uses next name from Variables
+# tec_file.AddData(V)  # Uses next name from Variables
+
+# Batch add with custom variable names
+tec_file.add_datas([X, Y, Z, P, U, V], 
+                 ['Xcoord', 'Ycoord', 'Zcoord', 'Pressure', 'Uvel', 'Vvel'])
+
+# Write to file
+tec_file.write_plt()
+```
+
 ### Key Differences
 
-| Feature | Simplified API | Traditional API |
-|----------|----------------|------------------|
-| Zone creation | Automatic (first AddData call) | Manual (TEC_ZONE()) |
-| Variable names | Auto from Variables list | Must match order manually |
-| Code lines | ~10 lines | ~15 lines |
-| Complexity | Low | High |
+| Feature | AddData | add_datas | Traditional API |
+|----------|----------|------------|------------------|
+| Zone creation | Automatic | Automatic | Manual (TEC_ZONE()) |
+| Variable names | Auto or custom | Auto or custom | Must match order manually |
+| Batch add | ❌ | ✅ | ❌ |
+| Code lines | ~10 lines | ~15 lines | ~20 lines |
+| Complexity | Low | Low | Medium | High |
 
 ## Running Tests
 

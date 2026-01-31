@@ -401,6 +401,68 @@ class TEC_FILE(TEC_FILE_BASE):
         
         return self
     
+    def add_datas(self, data_list: List[np.ndarray], 
+                 name_list: Optional[List[str]] = None) -> 'TEC_FILE':
+        """
+        Add multiple data arrays at once (DataFrame-like API).
+        
+        Batch addition of data variables with optional custom names.
+        Automatically creates zone, manages variable names, and adds all data.
+        
+        Args:
+            data_list: List of numpy arrays containing data
+            name_list: Optional list of variable names. If not provided,
+                       names are auto-assigned from Variables list in order.
+            
+        Returns:
+            Self for chaining
+            
+        Examples:
+            >>> tec_file = TEC_FILE()
+            >>> tec_file.Variables = ['x', 'y', 'z', 'pressure']
+            >>>
+            >>> # Generate data
+            >>> X = np.random.rand(100, 100)
+            >>> Y = np.random.rand(100, 100)
+            >>> Z = np.random.rand(100, 100)
+            >>> P = np.random.rand(100, 100)
+            >>>
+            >>> # Batch add with auto names (uses Variables in order)
+            >>> tec_file.add_datas([X, Y, Z, P])
+            >>>
+            >>> # Batch add with custom names
+            >>> tec_file.add_datas([X, Y, Z, P], ['Xcoord', 'Ycoord', 'Zcoord', 'Pvalue'])
+            >>>
+            >>> # Write to file
+            >>> tec_file.write_plt()
+        """
+        # Validate input
+        if not data_list:
+            raise RuntimeError('data_list cannot be empty')
+        
+        if name_list is not None and len(name_list) != len(data_list):
+            raise RuntimeError(
+                f'name_list length ({len(name_list)}) must match '
+                f'data_list length ({len(data_list)})'
+            )
+        
+        # Create first zone if needed
+        if not self.Zones:
+            self.Zones = [TEC_ZONE()]
+        
+        zone = self.Zones[0]
+        
+        # Add all data arrays
+        for i, data in enumerate(data_list):
+            if name_list is None:
+                # Auto-assign name from Variables list
+                self.AddData(data)
+            else:
+                # Use custom name
+                self.AddData(data, name=name_list[i])
+        
+        return self
+    
     def write_plt(self) -> 'TEC_FILE':
         """
         Write PLT file to disk.
