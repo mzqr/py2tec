@@ -21,3 +21,5 @@
 *.info
 test_simple_api.py
 simple_api_demo.plt
+test_batch_add.py
+batch_add_*.plt

@@ -2,6 +2,32 @@
 
 # Tecplot PLT File Generation Library (Python)
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Credits
+
+Original MATLAB library by [luanmingyi](https://github.com/luanmingyi/liton_ordered_tec_mat)
+
+## About This Project
+
+This is a Python reimplementation of the MATLAB `liton_ordered_tec` library, providing a cleaner, more Pythonic API for generating Tecplot PLT files.
+
+## Features
+
+- Full port of MATLAB TEC_FILE and TEC_ZONE classes
+- Support for multiple data zones in a single file
+- Support for 1D, 2D, and 3D data
+- Data subsampling with Skip, Begin, and EEnd parameters
+- Support for multiple data types: float32, float64, int32, int16, int8
+- Configurable echo modes for debugging
+- Column-major (Fortran) data order for Tecplot compatibility
+- **Simplified API**: AddData() method - automatic zone and variable name management
+- **Batch API**: add_datas() method - DataFrame-like bulk data addition
+- **Enhanced documentation**: Comprehensive docstrings with examples
+- **Fully licensed**: MIT License with proper copyright attribution
+
 This is a Python translation of the MATLAB `liton_ordered_tec` library for generating Tecplot `.plt` files.
 
 ## Features
@@ -41,6 +67,80 @@ Main class for creating Tecplot PLT files.
 - `set_echo_mode(file_mode, zone_mode)`: Set echo modes for file and zones
 - `AddData(data, name=None)`: Add single data array
 - `add_datas(data_list, name_list=None)`: Batch add multiple data arrays (DataFrame-like)
+
+## Key Improvements Over MATLAB
+
+| Feature | This Python Implementation | MATLAB Original |
+|----------|----------------------------|------------------|
+| Zone creation | Automatic (first AddData/add_datas call) | Manual (TEC_ZONE()) |
+| Variable naming | Auto from Variables list | Must match order manually |
+| Bulk data add | ✅ add_datas() supported | ❌ Not available |
+| Code lines | ~10 lines | ~15 lines |
+| Learning curve | Low | High |
+| Documentation | Complete docstrings + examples | Basic docstrings |
+| Licensing | ✅ MIT License | MIT License |
+
+## Usage Examples
+
+### Simplified API (Recommended)
+
+```python
+import numpy as np
+from tecplot import TEC_FILE
+
+# Create TEC_FILE object
+tec_file = TEC_FILE()
+tec_file.FileName = 'output'
+tec_file.Variables = ['x', 'y', 'z', 'pressure']
+
+# Create 2D grid data
+nx, ny = 100, 100
+x = np.linspace(0, 10, nx).reshape(nx, 1)
+y = np.linspace(0, 10, ny).reshape(1, ny)
+X = x + np.zeros_like(y)
+Y = y + np.zeros_like(x)
+Z = np.sin(X) * np.cos(Y)
+P = Z * 1000
+
+# Add data one by one (automatic zone creation)
+tec_file.AddData(X, name='x')
+tec_file.AddData(Y, name='y')
+tec_file.AddData(Z, name='z')
+tec_file.AddData(P)  # Uses 'pressure' from Variables
+
+# Write to file
+tec_file.write_plt()
+```
+
+### Bulk Data Addition (DataFrame-like)
+
+```python
+import numpy as np
+from tecplot import TEC_FILE
+
+# Create TEC_FILE object
+tec_file = TEC_FILE()
+tec_file.FileName = 'output'
+tec_file.Variables = ['x', 'y', 'z', 'pressure']
+
+# Create multiple data arrays
+x = np.linspace(0, 10, 100).reshape(100, 1)
+y = np.linspace(0, 10, 100).reshape(1, 100)
+X = x + np.zeros_like(y)
+Y = y + np.zeros_like(x)
+Z = np.sin(X) * np.cos(Y)
+P = Z * 1000
+
+# Batch add with automatic variable names (uses Variables in order)
+tec_file.add_datas([X, Y, Z, P])
+
+# Batch add with custom variable names
+tec_file.add_datas([X, Y, Z, P], 
+                 ['Xcoord', 'Ycoord', 'Zcoord', 'Pressure'])
+
+# Write to file
+tec_file.write_plt()
+```
 
 ### TEC_ZONE
 Class for managing data zones.
