@@ -56,6 +56,67 @@ def s2i(s: Union[str, List[str]]) -> List[int]:
         return list(result)
 
 
+def _get_var_name_from_caller(data_list: List[np.ndarray]) -> List[str]:
+    """
+    Extract variable names from the caller's local variables by matching array identities.
+    
+    This function inspects the caller's frame to find which variable names
+    correspond to the numpy arrays in data_list.
+    
+    Args:
+        data_list: List of numpy arrays to match with variable names
+        
+    Returns:
+        List of variable names (or generated names if not found)
+    """
+    import inspect
+    
+    try:
+        # Get the caller's frame
+        frame = inspect.currentframe()
+        if frame is None:
+            return [f'V{i}' for i in range(len(data_list))]
+        
+        # Go back to the caller's caller (to get the actual caller, not this function)
+        caller_frame = frame.f_back
+        if caller_frame is None:
+            return [f'V{i}' for i in range(len(data_list))]
+        
+        # Get caller's caller's frame (the actual user code)
+        actual_caller_frame = caller_frame.f_back
+        if actual_caller_frame is None:
+            # Fall back to direct caller
+            actual_caller_frame = caller_frame
+        
+        # Get local variables from the caller
+        local_vars = actual_caller_frame.f_locals
+        
+        # Also check globals (in case variables are global)
+        global_vars = actual_caller_frame.f_globals
+        all_vars = {**global_vars, **local_vars}
+        
+        # Match arrays to variable names
+        var_names = []
+        for arr in data_list:
+            found_name = None
+            for name, value in all_vars.items():
+                if isinstance(value, np.ndarray) and value is arr:
+                    found_name = name
+                    break
+            
+            if found_name:
+                var_names.append(found_name)
+            else:
+                # Generate a placeholder name
+                var_names.append(f'VAR{len(var_names)}')
+        
+        return var_names
+        
+    except Exception:
+        # If anything goes wrong, return generated names
+        return [f'V{i}' for i in range(len(data_list))]
+
+
 def real_ijk(ijk: List[int], skip: List[int], begin: List[int], eend: List[int]) -> List[int]:
     """
     Calculate real IJK from array dimensions with Skip, Begin and EEnd.
@@ -420,7 +481,8 @@ class TEC_FILE(TEC_FILE_BASE):
         return self
     
     def add_datas(self, data_list: List[np.ndarray], 
-                 name_list: Optional[List[str]] = None) -> 'TEC_FILE':
+                 name_list: Optional[List[str]] = None,
+                 auto_name: bool = True) -> 'TEC_FILE':
         """
         Add multiple data arrays at once (DataFrame-like API).
         
@@ -430,8 +492,12 @@ class TEC_FILE(TEC_FILE_BASE):
         Args:
             data_list: List of numpy arrays containing data
             name_list: Optional list of variable names. If not provided,
-                       names are auto-assigned from Variables list in order.
-            
+                       names are auto-assigned based on auto_name parameter.
+            auto_name: If True (default) and name_list is None:
+                       - First tries to infer names from Python variable names
+                       - If that fails, uses self.Variables list
+                       If False: requires name_list or self.Variables to be set.
+        
         Returns:
             Self for chaining
             
@@ -445,11 +511,16 @@ class TEC_FILE(TEC_FILE_BASE):
             >>> Z = np.random.rand(100, 100)
             >>> P = np.random.rand(100, 100)
             >>>
-            >>> # Batch add with auto names (uses Variables in order)
+            >>> # Batch add with auto names (uses Python variable names)
             >>> tec_file.add_datas([X, Y, Z, P])
             >>>
-            >>> # Batch add with custom names
+            >>> # Batch add with explicit names
             >>> tec_file.add_datas([X, Y, Z, P], ['Xcoord', 'Ycoord', 'Zcoord', 'Pvalue'])
+            >>>
+            >>> # Batch add with Variables list (legacy behavior)
+            >>> tec_file2 = TEC_FILE()
+            >>> tec_file2.Variables = ['X', 'Y', 'Z', 'P']
+            >>> tec_file2.add_datas([X, Y, Z, P], auto_name=True)
             >>>
             >>> # Write to file
             >>> tec_file.write_plt()
@@ -464,6 +535,31 @@ class TEC_FILE(TEC_FILE_BASE):
                 f'data_list length ({len(data_list)})'
             )
         
+        # Determine variable names based on auto_name and name_list
+        if name_list is not None:
+            # Explicit names provided
+            use_names = name_list
+        elif auto_name:
+            # Auto-infer from Python variable names
+            inferred_names = _get_var_name_from_caller(data_list)
+            
+            # If we got valid inferred names (not all placeholders), use them
+            if inferred_names and not all(n.startswith('VAR') for n in inferred_names):
+                use_names = inferred_names
+            elif self.Variables:
+                # Fall back to Variables list
+                use_names = None
+            else:
+                # Use inferred names (even if they're placeholders)
+                use_names = inferred_names
+        else:
+            # Use Variables list (legacy behavior)
+            use_names = None
+        
+        # Auto-set Variables from inferred/explicit names if not already set
+        if use_names is not None and not self.Variables:
+            self.Variables = list(use_names)
+        
         # Create first zone if needed
         if not self.Zones:
             self.Zones = [TEC_ZONE()]
@@ -472,12 +568,12 @@ class TEC_FILE(TEC_FILE_BASE):
         
         # Add all data arrays
         for i, data in enumerate(data_list):
-            if name_list is None:
+            if use_names is None:
                 # Auto-assign name from Variables list
                 self.AddData(data)
             else:
-                # Use custom name
-                self.AddData(data, name=name_list[i])
+                # Use inferred or explicit name
+                self.AddData(data, name=use_names[i])
         
         return self
     
