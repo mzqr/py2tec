@@ -349,7 +349,7 @@ def main():
     print(f"RESULTS: {passed} passed, {failed} failed")
     print("=" * 60)
     
-    cleanup()
+    #cleanup()
     return 0 if failed == 0 else 1
 
 

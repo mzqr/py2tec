@@ -1,337 +1,86 @@
+# py2tec
 
+Python library for generating Tecplot binary PLT files.
 
-# Tecplot PLT File Generation Library (Python)
+## Install
 
-## License
+```bash
+pip install numpy
+# Copy tecplot.py to your project
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Quick Start
 
-## Credits
+```python
+import numpy as np
+from tecplot import TEC_FILE
 
-Original MATLAB library by [luanmingyi](https://github.com/luanmingyi/liton_ordered_tec_mat)
+# Create data
+x = np.linspace(0, 10, 100).reshape(100, 1)
+y = np.linspace(0, 10, 100).reshape(1, 100)
+X = x + np.zeros_like(y)
+Y = y + np.zeros_like(x)
+Z = np.sin(X) * np.cos(Y)
 
-## About This Project
+# Write PLT file
+tec = TEC_FILE()
+tec.FileName = 'output'
+tec.Variables = ['x', 'y', 'z']
+tec.add_datas([X, Y, Z])
+tec.write_plt()
+```
 
-This is a Python reimplementation of the MATLAB `liton_ordered_tec` library, providing a cleaner, more Pythonic API for generating Tecplot PLT files.
-
-## Features
-
-- Full port of MATLAB TEC_FILE and TEC_ZONE classes
-- Support for multiple data zones in a single file
-- Support for 1D, 2D, and 3D data
-- Data subsampling with Skip, Begin, and EEnd parameters
-- Support for multiple data types: float32, float64, int32, int16, int8
-- Configurable echo modes for debugging
-- Column-major (Fortran) data order for Tecplot compatibility
-- **Simplified API**: AddData() method - automatic zone and variable name management
-- **Batch API**: add_datas() method - DataFrame-like bulk data addition
-- **Enhanced documentation**: Comprehensive docstrings with examples
-- **Fully licensed**: MIT License with proper copyright attribution
-
-This is a Python translation of the MATLAB `liton_ordered_tec` library for generating Tecplot `.plt` files.
-
-## Features
-
-- Full port of MATLAB TEC_FILE and TEC_ZONE classes
-- Support for multiple data zones in a single file
-- Support for 1D, 2D, and 3D data
-- Data subsampling with Skip, Begin, and EEnd parameters
-- Support for multiple data types: float32, float64, int32, int16, int8
-- Configurable echo modes for debugging
-- Column-major (Fortran) data order for Tecplot compatibility
-
-## Files
-
-- **tecplot.py**: Main library containing all classes and functions
-- **test_tecplot.py**: Comprehensive test suite demonstrating usage
-- **README.md**: This file
-
-## Classes
+## API
 
 ### TEC_FILE
+
 Main class for creating Tecplot PLT files.
 
 **Properties:**
-- `FilePath`: Output directory (default: '.')
-- `FileName`: Output filename without extension (default: 'untitled_file')
-- `Title`: File title (default: 'untitled')
-- `Variables`: List of variable names
-- `FileType`: File type (0=FULL, 1=GRID, 2=SOLUTION, default: 0)
-- `Zones`: List of TEC_ZONE objects
-- `Auxiliary`: Auxiliary data (optional)
-
-**Echo Modes:** 'brief', 'full', 'simple', 'none', 'leave'
+- `FilePath` - Output directory (default: '.')
+- `FileName` - Output filename without extension
+- `Title` - File title
+- `Variables` - List of variable names
+- `Zones` - List of TEC_ZONE objects
+- `Echo_Mode` - 'brief', 'full', 'simple', 'none', 'leave'
 
 **Methods:**
-- `write_plt()`: Write PLT file to disk
-- `set_echo_mode(file_mode, zone_mode)`: Set echo modes for file and zones
-- `AddData(data, name=None)`: Add single data array
-- `add_datas(data_list, name_list=None)`: Batch add multiple data arrays (DataFrame-like)
-
-## Key Improvements Over MATLAB
-
-| Feature | This Python Implementation | MATLAB Original |
-|----------|----------------------------|------------------|
-| Zone creation | Automatic (first AddData/add_datas call) | Manual (TEC_ZONE()) |
-| Variable naming | Auto from Variables list | Must match order manually |
-| Bulk data add | ✅ add_datas() supported | ❌ Not available |
-| Code lines | ~10 lines | ~15 lines |
-| Learning curve | Low | High |
-| Documentation | Complete docstrings + examples | Basic docstrings |
-| Licensing | ✅ MIT License | MIT License |
-
-## Usage Examples
-
-### Simplified API (Recommended)
-
-```python
-import numpy as np
-from tecplot import TEC_FILE
-
-# Create TEC_FILE object
-tec_file = TEC_FILE()
-tec_file.FileName = 'output'
-tec_file.Variables = ['x', 'y', 'z', 'pressure']
-
-# Create 2D grid data
-nx, ny = 100, 100
-x = np.linspace(0, 10, nx).reshape(nx, 1)
-y = np.linspace(0, 10, ny).reshape(1, ny)
-X = x + np.zeros_like(y)
-Y = y + np.zeros_like(x)
-Z = np.sin(X) * np.cos(Y)
-P = Z * 1000
-
-# Add data one by one (automatic zone creation)
-tec_file.AddData(X, name='x')
-tec_file.AddData(Y, name='y')
-tec_file.AddData(Z, name='z')
-tec_file.AddData(P)  # Uses 'pressure' from Variables
-
-# Write to file
-tec_file.write_plt()
-```
-
-### Bulk Data Addition (DataFrame-like)
-
-```python
-import numpy as np
-from tecplot import TEC_FILE
-
-# Create TEC_FILE object
-tec_file = TEC_FILE()
-tec_file.FileName = 'output'
-tec_file.Variables = ['x', 'y', 'z', 'pressure']
-
-# Create multiple data arrays
-x = np.linspace(0, 10, 100).reshape(100, 1)
-y = np.linspace(0, 10, 100).reshape(1, 100)
-X = x + np.zeros_like(y)
-Y = y + np.zeros_like(x)
-Z = np.sin(X) * np.cos(Y)
-P = Z * 1000
-
-# Batch add with automatic variable names (uses Variables in order)
-tec_file.add_datas([X, Y, Z, P])
-
-# Batch add with custom variable names
-tec_file.add_datas([X, Y, Z, P], 
-                 ['Xcoord', 'Ycoord', 'Zcoord', 'Pressure'])
-
-# Write to file
-tec_file.write_plt()
-```
+- `write_plt()` - Write PLT file
+- `AddData(data, name=None)` - Add single data array
+- `add_datas(data_list, name_list=None, auto_name=True)` - Batch add data
 
 ### TEC_ZONE
-Class for managing data zones.
+
+Data zone container.
 
 **Properties:**
-- `ZoneName`: Zone identifier (default: 'untitled_zone')
-- `StrandId`: Strand ID (default: -1)
-- `SolutionTime`: Solution time (default: 0.0)
-- `Skip`: Skip values for subsampling [i,j,k] (default: [1,1,1])
-- `Begin`: Skip values from beginning [i,j,k] (default: [0,0,0])
-- `EEnd`: Skip values from end [i,j,k] (default: [0,0,0])
-- `Data`: List of numpy arrays (one per variable)
-- `Auxiliary`: Auxiliary data (optional)
+- `ZoneName` - Zone name
+- `Data` - List of numpy arrays
+- `Skip` - Subsample stride [I,J,K]
+- `Begin` - Skip from start [I,J,K]
+- `EEnd` - Skip from end [I,J,K]
 
-**Methods:**
-- `gather_real_size(n)`: Calculate real data dimensions
+### Utility Functions
 
-## Utility Functions
+- `s2i(s)` - String to int32 array
+- `real_ijk(ijk, skip, begin, eend)` - Calculate real dimensions
+- `makebuf(data, skip, begin, eend)` - Create subsampled buffer
+- `gettype(data)` - Get Tecplot type code
 
-- `s2i(s)`: Convert string to int32 array with null terminator
-- `real_ijk(ijk, skip, begin, eend)`: Calculate real IJK dimensions
-- `makebuf(data, skip, begin, eend)`: Create buffer with subsampling
-- `gettype(data)`: Get data type code and size
+## Data Types
 
-## Supported Data Types
-
-- `float32`: Float (type code: 1)
-- `float64`: Double (type code: 2)
-- `int32`: LongInt (type code: 3)
-- `int16`: ShortInt (type code: 4)
-- `int8`: Byte (type code: 5)
-
-## Basic Usage
-
-### Simplified API (Recommended)
-
-```python
-import numpy as np
-from tecplot import TEC_FILE
-
-# Create TEC_FILE object
-tec_file = TEC_FILE()
-tec_file.FileName = 'output'
-tec_file.Variables = ['x', 'y', 'z', 'pressure']
-
-# Create 2D grid data
-nx, ny = 100, 100
-x = np.linspace(0, 10, nx).reshape(nx, 1)
-y = np.linspace(0, 10, ny).reshape(1, ny)
-X = x + np.zeros_like(y)
-Y = y + np.zeros_like(x)
-Z = np.sin(X) * np.cos(Y)
-P = Z * 1000
-
-# Add data one by one (automatic zone creation)
-tec_file.AddData(X, name='x')
-tec_file.AddData(Y, name='y')
-tec_file.AddData(Z, name='z')
-tec_file.AddData(P)  # Uses 'pressure' from Variables
-
-# Write PLT file
-tec_file.write_plt()
-```
-
-### Traditional API
-
-```python
-import numpy as np
-from tecplot import TEC_FILE, TEC_ZONE
-
-# Create TEC_FILE object
-tec_file = TEC_FILE()
-tec_file.FileName = 'output'
-tec_file.Variables = ['x', 'y', 'z', 'pressure']
-
-# Create TEC_ZONE object
-tec_file.Zones = [TEC_ZONE()]
-
-# Create 2D grid data
-nx, ny = 100, 100
-x = np.linspace(0, 10, nx).reshape(nx, 1)
-y = np.linspace(0, 10, ny).reshape(1, ny)
-X = x + np.zeros_like(y)
-Y = y + np.zeros_like(x)
-Z = np.sin(X) * np.cos(Y)
-P = Z * 1000
-
-# Assign data (must match variable order)
-tec_file.Zones[0].Data = [X, Y, Z, P]
-tec_file.Zones[0].ZoneName = 'MyZone'
-
-# Write PLT file
-tec_file.write_plt()
-```
-
-### Batch Add API (DataFrame-like)
-
-```python
-import numpy as np
-from tecplot import TEC_FILE
-
-# Create TEC_FILE object
-tec_file = TEC_FILE()
-tec_file.FileName = 'output'
-tec_file.Variables = ['x', 'y', 'z', 'pressure']
-
-# Create multiple data arrays
-x = np.linspace(0, 10, 100).reshape(100, 1)
-y = np.linspace(0, 10, 100).reshape(1, 100)
-X = x + np.zeros_like(y)
-Y = y + np.zeros_like(x)
-Z = np.sin(X) * np.cos(Y)
-P = Z * 1000
-U = np.random.rand(100, 100)
-V = np.random.rand(100, 100)
-
-# Batch add with automatic variable names
-tec_file.add_datas([X, Y, Z, P, U, V])
-# Same as:
-# tec_file.AddData(X)  # Uses 'x' from Variables
-# tec_file.AddData(Y)  # Uses 'y' from Variables
-# tec_file.AddData(Z)  # Uses 'z' from Variables
-# tec_file.AddData(P)  # Uses 'pressure' from Variables
-# tec_file.AddData(U)  # Uses next name from Variables
-# tec_file.AddData(V)  # Uses next name from Variables
-
-# Batch add with custom variable names
-tec_file.add_datas([X, Y, Z, P, U, V], 
-                 ['Xcoord', 'Ycoord', 'Zcoord', 'Pressure', 'Uvel', 'Vvel'])
-
-# Write to file
-tec_file.write_plt()
-```
-
-### Key Differences
-
-| Feature | AddData | add_datas | Traditional API |
-|----------|----------|------------|------------------|
-| Zone creation | Automatic | Automatic | Manual (TEC_ZONE()) |
-| Variable names | Auto or custom | Auto or custom | Must match order manually |
-| Batch add | ❌ | ✅ | ❌ |
-| Code lines | ~10 lines | ~15 lines | ~20 lines |
-| Complexity | Low | Low | Medium | High |
-
-## Running Tests
-
-```bash
-python test_tecplot.py
-```
-
-The test suite includes:
-1. Simple 2D data
-2. Multiple zones
-3. Skip and Begin parameters (subsampling)
-4. 3D volumetric data
-5. Mixed data types
-6. Different echo modes
-
-## Comparison with MATLAB Version
-
-This Python translation maintains the same API and functionality as the original MATLAB version:
-
-| MATLAB | Python |
-|--------|--------|
-| `TEC_FILE()` | `TEC_FILE()` |
-| `TEC_ZONE()` | `TEC_ZONE()` |
-| Cell arrays | Python lists |
-| MATLAB arrays | NumPy arrays |
-| `tic/toc` | `time.time()` |
-| `fwrite(fid, value, type)` | `struct.pack()` and binary file I/O |
+- `float32` → Float (1)
+- `float64` → Double (2)
+- `int32` → LongInt (3)
+- `int16` → ShortInt (4)
+- `int8` → Byte (5)
 
 ## Notes
 
-- NumPy is required for array operations
-- Binary output uses little-endian byte order (compatible with Tecplot)
-- Variable data order must match `Variables` list
-- Zone names should be unique for proper identification
-- **Important**: Data is written in column-major (Fortran) order to match MATLAB output
+- Data uses column-major (Fortran) order
+- Binary output uses little-endian byte order
+- Variable count must match Data count
 
-## Recent Improvements
+## License
 
-### Version 1.0 - 2026-01-30
-- ✅ Fixed Echo_Mode initialization bug in constructors
-- ✅ Added complete type hints throughout the codebase
-- ✅ Optimized s2i function using bytearray (better performance)
-- ✅ Extracted repeated string formatting to helper functions
-- ✅ Added comprehensive documentation with examples
-- ✅ Fixed critical data order issue (column-major vs row-major)
-- ✅ Full test suite with 6 test cases
-
-## Requirements
-
-- Python 3.6+
-- NumPy 1.16+
+MIT
